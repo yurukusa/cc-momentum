@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>cc-momentum — Your Claude Code usage trend</title>
+<meta name="description" content="Are you using Claude Code more or less than last month? Drop your ~/.claude folder to see your week-by-week session trend.">
+<meta property="og:title" content="cc-momentum — Week-by-week Claude Code trend analyzer">
+<meta property="og:description" content="See if your Claude Code usage is accelerating, stable, or declining. Week-by-week bar chart with trend classification.">
+<meta property="og:url" content="https://yurukusa.github.io/cc-momentum/">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:site" content="@yurukusa_dev">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --bg: #0d1117; --surface: #161b22; --border: #30363d;
+  --text: #e6edf3; --muted: #8b949e;
+  --purple: #bc8cff; --cyan: #58d8f0; --yellow: #f7c948; --orange: #ffa657;
+  --blue: #58a6ff; --green: #56d364; --red: #ff7b72;
+}
+body {
+  background: var(--bg); color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Consolas, monospace;
+  min-height: 100vh; display: flex; flex-direction: column;
+  align-items: center; padding: 2rem 1rem;
+}
+.header { text-align: center; margin-bottom: 2rem; }
+.header h1 { font-size: 1.8rem; font-weight: 700; color: var(--green); margin-bottom: 0.5rem; }
+.header p { color: var(--muted); font-size: 0.9rem; }
+.drop-zone {
+  width: 100%; max-width: 600px; border: 2px dashed var(--border);
+  border-radius: 12px; padding: 3rem 2rem; text-align: center;
+  cursor: pointer; transition: border-color 0.2s, background 0.2s;
+  margin-bottom: 2rem; background: var(--surface);
+}
+.drop-zone:hover, .drop-zone.drag-over { border-color: var(--green); background: #0d1f0d; }
+.drop-zone h2 { font-size: 1.1rem; margin-bottom: 0.75rem; }
+.drop-zone p { color: var(--muted); font-size: 0.85rem; line-height: 1.5; }
+.drop-zone .icon { font-size: 2.5rem; margin-bottom: 1rem; }
+.drop-zone input[type="file"] { display: none; }
+#results { width: 100%; max-width: 700px; display: none; }
+.meta { font-size: 0.8rem; color: var(--muted); margin-bottom: 1.5rem; text-align: center; }
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: 1.25rem; margin-bottom: 1.5rem;
+}
+.card-title { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 1rem; }
+.week-row {
+  display: flex; align-items: center; gap: 0.5rem;
+  margin-bottom: 0.3rem; font-size: 0.78rem;
+}
+.week-label { color: var(--muted); min-width: 6.5rem; font-family: Consolas, monospace; }
+.week-label.peak { color: var(--purple); }
+.bar-wrap { flex: 1; height: 14px; background: #21262d; border-radius: 3px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 3px; transition: width 0.4s ease; }
+.bar-fill.peak    { background: var(--purple); }
+.bar-fill.above   { background: var(--cyan); }
+.bar-fill.normal  { background: var(--muted); opacity: 0.7; }
+.bar-fill.current { background: var(--yellow); opacity: 0.6; }
+.week-count { color: var(--muted); min-width: 3.5rem; text-align: right; font-family: Consolas, monospace; font-size: 0.75rem; }
+.score-card { text-align: center; }
+.trend-label { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem; }
+.trend-stats { display: flex; justify-content: center; gap: 2rem; flex-wrap: wrap; margin-top: 1rem; }
+.t-stat .num { font-size: 1.2rem; font-weight: 700; display: block; }
+.t-stat .lbl { font-size: 0.7rem; color: var(--muted); }
+.footer { margin-top: 2rem; text-align: center; font-size: 0.8rem; color: var(--muted); }
+.footer a { color: var(--blue); text-decoration: none; margin: 0 0.5rem; }
+.btn {
+  background: var(--green); color: #0d1117; border: none;
+  border-radius: 6px; padding: 0.6rem 1.5rem; font-size: 0.9rem;
+  font-weight: 600; cursor: pointer; margin-top: 1rem; font-family: inherit;
+}
+.btn:hover { opacity: 0.85; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>cc-momentum</h1>
+  <p>Is your Claude Code usage growing or declining?</p>
+</div>
+<div class="drop-zone" id="dropZone" onclick="document.getElementById('fi').click()">
+  <div class="icon">📈</div>
+  <h2>Drop your .claude folder here</h2>
+  <p>Or click to select it.<br>Your data stays local — nothing is uploaded.</p>
+  <input type="file" id="fi" webkitdirectory multiple>
+  <button class="btn" onclick="event.stopPropagation(); document.getElementById('fi').click()">
+    Select ~/.claude folder
+  </button>
+</div>
+<div id="results">
+  <div class="meta" id="metaLine"></div>
+  <div class="card score-card" id="scoreCard"></div>
+  <div class="card">
+    <div class="card-title">Sessions per week</div>
+    <div id="chart"></div>
+  </div>
+  <div class="footer">
+    <a href="https://github.com/yurukusa/cc-momentum" target="_blank">GitHub</a> ·
+    <a href="https://yurukusa.github.io/cc-toolkit/" target="_blank">cc-toolkit (48 free tools)</a> ·
+    <span>Also: <code>npx cc-momentum</code></span>
+  </div>
+</div>
+<div class="footer" id="footerMain">
+  <a href="https://github.com/yurukusa/cc-momentum" target="_blank">GitHub</a> ·
+  <a href="https://yurukusa.github.io/cc-toolkit/" target="_blank">cc-toolkit</a> ·
+  <span>Part of 48 free tools for Claude Code</span>
+</div>
+<script>
+const dropZone = document.getElementById('dropZone');
+const fi = document.getElementById('fi');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('drag-over'); processFiles(Array.from(e.dataTransfer.files)); });
+fi.addEventListener('change', e => processFiles(Array.from(e.target.files)));
+
+function getISOWeek(date) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const day = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const week = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+  return `${d.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
+}
+
+function classify(trendPct) {
+  if (trendPct >= 50)       return { label: '🚀 Accelerating',      color: 'var(--green)' };
+  if (trendPct >= 20)       return { label: '📈 Growing',            color: 'var(--green)' };
+  if (trendPct >= -20)      return { label: '→ Stable',              color: 'var(--yellow)' };
+  if (trendPct >= -50)      return { label: '📉 Declining',          color: 'var(--orange)' };
+  return                           { label: '⬇️ Sharply Declining',   color: 'var(--red)' };
+}
+
+async function processFiles(files) {
+  const sessionFiles = files.filter(f => {
+    const p = f.webkitRelativePath;
+    return p.endsWith('.jsonl') && p.includes('projects') && !p.includes('/subagents/');
+  });
+  if (!sessionFiles.length) {
+    alert('No session files found.\nSelect your .claude folder (not a subfolder).');
+    return;
+  }
+
+  const weekCounts = new Map();
+  for (const f of sessionFiles) {
+    try {
+      const text = await f.slice(0, 4096).text();
+      for (const line of text.split('\n')) {
+        if (!line.trim()) continue;
+        try {
+          const d = JSON.parse(line);
+          if (d.timestamp) {
+            const w = getISOWeek(new Date(d.timestamp));
+            weekCounts.set(w, (weekCounts.get(w) || 0) + 1);
+            break;
+          }
+        } catch {}
+      }
+    } catch {}
+  }
+
+  if (weekCounts.size < 2) {
+    alert('Not enough data to compute weekly trend.');
+    return;
+  }
+
+  const allWeeks = [...weekCounts.keys()].sort();
+  const currentWeek = getISOWeek(new Date());
+  const weeks = allWeeks.map(k => ({ key: k, count: weekCounts.get(k) || 0 }));
+  const completeWeeks = weeks[weeks.length - 1]?.key === currentWeek ? weeks.slice(0, -1) : weeks;
+
+  const recent3 = completeWeeks.slice(-3);
+  const prev3   = completeWeeks.slice(-6, -3);
+  const recentAvg = recent3.reduce((s, w) => s + w.count, 0) / Math.max(recent3.length, 1);
+  const prevAvg   = prev3.reduce((s, w) => s + w.count, 0) / Math.max(prev3.length, 1);
+  const trendPct  = prevAvg > 0 ? ((recentAvg - prevAvg) / prevAvg * 100) : 0;
+  const peakWeek  = weeks.reduce((a, b) => a.count >= b.count ? a : b);
+  const total     = weeks.reduce((s, w) => s + w.count, 0);
+
+  document.getElementById('metaLine').textContent = `${total} sessions · ${weeks.length} weeks`;
+  dropZone.style.display = 'none';
+  document.getElementById('footerMain').style.display = 'none';
+  document.getElementById('results').style.display = 'block';
+
+  const displayWeeks = weeks.slice(-16); // show last 16 weeks max
+  const maxCount = Math.max(...displayWeeks.map(w => w.count), 1);
+
+  document.getElementById('chart').innerHTML = displayWeeks.map(w => {
+    const pct = (w.count / maxCount * 100).toFixed(0);
+    const isPeak = w.key === peakWeek.key;
+    const isCurrent = w.key === currentWeek;
+    const cls = isPeak ? 'peak' : isCurrent ? 'current' : w.count > recentAvg * 1.2 ? 'above' : 'normal';
+    const suffix = isPeak ? ' ◀ peak' : isCurrent ? ' (in progress)' : '';
+    return `<div class="week-row">
+      <span class="week-label ${isPeak ? 'peak' : ''}">${w.key}</span>
+      <div class="bar-wrap"><div class="bar-fill ${cls}" style="width:${pct}%"></div></div>
+      <span class="week-count">${w.count}${suffix}</span>
+    </div>`;
+  }).join('');
+
+  const cls = classify(trendPct);
+  const sign = trendPct >= 0 ? '+' : '';
+  document.getElementById('scoreCard').innerHTML = `
+    <div class="card-title">Usage momentum</div>
+    <div class="trend-label" style="color:${cls.color}">${cls.label}</div>
+    <div style="color:var(--muted);font-size:0.8rem">${sign}${Math.round(trendPct)}% vs previous 3 weeks</div>
+    <div class="trend-stats">
+      <div class="t-stat"><span class="num" style="color:${cls.color}">${Math.round(recentAvg)}</span><span class="lbl">recent avg (3w)</span></div>
+      <div class="t-stat"><span class="num" style="color:var(--purple)">${peakWeek.count}</span><span class="lbl">peak week</span></div>
+      <div class="t-stat"><span class="num">${total}</span><span class="lbl">total sessions</span></div>
+      <div class="t-stat"><span class="num">${weeks.length}</span><span class="lbl">weeks tracked</span></div>
+    </div>`;
+}
+</script>
+</body>
+</html>

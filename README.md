@@ -61,7 +61,7 @@ npx cc-momentum --json       # JSON output for dashboards
 
 ## Part of cc-toolkit
 
-cc-momentum is tool #48 in [cc-toolkit](https://yurukusa.github.io/cc-toolkit/) — 48 free tools for Claude Code users.
+cc-momentum is tool #48 in [cc-toolkit](https://yurukusa.github.io/cc-toolkit/) — 49 free tools for Claude Code users.
 
 Related tools:
 - [cc-streak](https://github.com/yurukusa/cc-streak) — Consecutive days of usage

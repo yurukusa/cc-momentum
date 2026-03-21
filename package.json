@@ -1,7 +1,7 @@
 {
   "name": "cc-momentum",
   "version": "1.0.0",
-  "description": "Week-by-week Claude Code session trend — are you accelerating or declining?",
+  "description": "Week-by-week Claude Code session trend \u2014 are you accelerating or declining?",
   "type": "module",
   "bin": {
     "cc-momentum": "./cli.mjs"
@@ -23,5 +23,6 @@
   "license": "MIT",
   "engines": {
     "node": ">=18"
-  }
+  },
+  "homepage": "https://github.com/yurukusa/cc-momentum#readme"
 }
